@@ -1,0 +1,11 @@
+#!/bin/sh
+if [ -n "$1" ];then
+  HDD=$1
+else
+	HDD="sda"
+fi
+DATA=$(hddtemp /dev/$HDD | sed 's/: /\n/g')
+TEMP=$(echo "$DATA" | tail -1)
+NAME=$(echo "$DATA" | head -2 | tail -1)
+echo "<txt>$TEMP</txt><tool>/dev/$HDD\n$NAME\nTemperature $TEMP</tool>"
+echo "<img>/usr/local/share/icons/hicolor/22x22/devices/sensors-applet-drive-harddisk.png</img>"
