@@ -1,0 +1,18 @@
+#!/bin/sh
+file="/sys/class/thermal/thermal_zone0/temp"
+if [ ! -f $file ];then
+  echo "<txt>ERR</txt>"
+  echo "<tool>This script does not support this system, try using the temp script</tool>"
+  exit
+fi
+temp="$(cat $file | awk '{print $1/1000}')"
+echo "<img>/usr/local/share/icons/hicolor/22x22/devices/sensors-applet-cpu.png</img>"
+if [ "$1" == "-f" ];then
+  temp="$(echo $temp | awk '{print $1*(9/5)+32}')°F"
+	echo "<txt>$temp</txt>"
+	echo "<tool>CPU Temperature $temp</tool>"
+else
+	echo "<txt>$temp°C</txt>"
+	echo "<tool>CPU Temperature $temp°C</tool>"
+fi
+exit
