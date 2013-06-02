@@ -1,0 +1,120 @@
+#!/bin/bash
+# add this to startup
+# NAME_OF_THIS_FILE --set-permissions
+if [ "$1" == "--set-permissions" ];then
+  LOC="/sys/devices/system/cpu"
+	chmod 777 $LOC/cpu*/cpufreq/{scaling_setspeed,scaling_governor} 2> /dev/null
+	if [ $? -eq 1 ];then
+		echo "You should know you need root access to do this"
+		exit
+	fi
+	if [ $(ls $LOC/cpu*/cpufreq/cpuinfo_cur_freq 2> /dev/null | wc -l) -gt 0 ];then
+		chmod 444 $LOC/cpu*/cpufreq/cpuinfo_cur_freq
+	fi
+	exit
+fi
+ICONS="/usr/local/share/pixmaps/cpufreq-applet"
+if [ -z "$1" ];then
+	echo "<img>$ICONS/cpufreq-na.png</img><txt>Which Core?</txt>"
+	echo -e "<tool>$(basename $0) [Core Number]\n$(basename $0) 0</tool>"
+	exit
+fi
+LOC="/sys/devices/system/cpu/cpu$1/cpufreq"
+GOV=$(cat $LOC/scaling_governor)
+if [ "$2" == "--set" ];then
+	GOVS=$(cat $LOC/scaling_available_governors)
+	NOTIFY_PRA1="Access Denied"
+	NOTIFY_PRA2="Run this to fix it:\n$(basename $0) --set-permissions"
+	if [ "${GOVS:$((${#GOVS}-1))}" != " " ];then
+		GOVS="$GOVS "
+	fi
+	LIST=$(echo ${GOVS:0:-1} | sed 's/.*/\L&/;s/[a-z]*/\u&/g;s/ / FALSE /g')
+	NewGOV=$(zenity --list --title 'Choose a Governor' --text 'Select one' --radiolist --column 'Pick' --column 'Opinion' TRUE $LIST)
+	if [ -n "$NewGOV" ];then
+		if [ "$NewGOV" == "Userspace" ];then
+			SPD=$(cat $LOC/scaling_available_frequencies)
+			LIST=$(echo ${SPD:0:-1} | sed 's/ / FALSE /g')
+			NewSPD=$(zenity --list --title 'Choose a Frequency' --text 'Select one' --radiolist --column 'Pick' --column 'Opinion' TRUE $LIST)
+			if [ -z "$NewSPD" ];then
+				exit
+			fi
+		fi
+		CoreCt=$(ls /sys/devices/system/cpu/ | grep 'cpu[0-9]' | wc -l)
+		if [ $CoreCt -gt 1 ];then
+			if [ $(zenity --question --text="Apply this to all cores?";echo $?) -eq 0 ];then
+				Core=0
+				while [ $Core -lt $CoreCt ];do
+					echo ${NewGOV,} > /sys/devices/system/cpu/cpu$Core/cpufreq/scaling_governor
+					#cpufreq-set -c $Core -g ${NewGOV,}
+					if [ $? -eq 1 ];then
+						notify-send --icon=error "$NOTIFY_PRA1" "$NOTIFY_PRA2"
+						exit
+					fi
+					if [ -n "$NewSPD" ];then
+						echo $NewSPD > /sys/devices/system/cpu/cpu$Core/cpufreq/scaling_setspeed
+						#cpufreq-set -c $Core -f $NewSPD
+					fi
+					Core=$(($Core+1))
+				done
+				exit
+			fi
+		fi
+		echo ${NewGOV,} > $LOC/scaling_governor
+		#cpufreq-set -c $1 -g ${NewGOV,}
+		if [ $? -eq 1 ];then
+			notify-send --icon=error "$NOTIFY_PRA1" "$NOTIFY_PRA2"
+			exit
+		fi
+		if [ -n "$NewSPD" ];then
+			echo $NewSPD > $LOC/scaling_setspeed
+			#cpufreq-set -c $1 -f $NewSPD
+		fi
+	fi
+	exit
+fi
+if [ -f $LOC/scaling_cur_freq ];then
+	CUR=$(cat $LOC/scaling_cur_freq)
+elif [ -f $LOC/cpuinfo_cur_freq ];then
+	CUR=$(cat $LOC/cpuinfo_cur_freq 2> /dev/null)
+	if [ $? -eq 1 ];then
+		echo "<txt>ERR</txt>"
+		echo -e "<tool>Permission Error, to fix run:\n$(basename $0) --set-permissions</tool>"
+		exit
+	fi
+else
+	echo "<txt>ERR</txt>"
+	echo "<tool>No idea how the power management works on this cpu @.@</tool>"
+	exit
+fi
+MAX=$(cat $LOC/scaling_max_freq)
+USE=$(perl -e "print int($CUR/$MAX*1000)")
+GHz=$(perl -e "print $CUR/1000000")
+if [ "$2" == "--bar" ];then
+	echo "<img>$ICONS/cpufreq-na.png</img>"
+	echo "<bar>$(($USE/10))</bar>"
+elif [ $USE -lt 125 ];then
+	echo "<img>$ICONS/cpufreq-0.png</img>"
+elif [ $USE -lt 375 ];then
+	echo "<img>$ICONS/cpufreq-25.png</img>"
+elif [ $USE -lt 625 ];then
+	echo "<img>$ICONS/cpufreq-50.png</img>"
+elif [ $USE -lt 875 ];then
+	echo "<img>$ICONS/cpufreq-75.png</img>"
+else
+	echo "<img>$ICONS/cpufreq-100.png</img>"
+fi
+if [ ${GHz:0:1} -gt 0 ];then
+	Spd="$GHz GHz"
+else
+	MHz=$(perl -e "print $GHz*1000")
+	Spd="$MHz MHz"
+fi
+USE="$(($USE/10))"
+if [ $USE -lt 100 ];then
+	echo "<txt>$USE%<span fgcolor=\"#18191A\">0</span></txt>" # 18191A
+else
+	echo "<txt>$USE%</txt>"
+fi
+echo -e "<tool>Core $1 is at $Spd\nGovernor is ${GOV^}\nScaling driver is $(cat $LOC/scaling_driver)</tool>"
+echo "<click>$(basename $0) $1 --set</click>"
+exit
