@@ -1,0 +1,15 @@
+#!/bin/sh
+# Dependencies: nvidia-settings mawk grep coreutils
+temp=$(nvidia-smi -q -d temperature | grep Gpu | awk '{print $3}')
+if [ "$1" = "-f" ];then
+  temp=`echo $temp | awk "{print $1*(9/5)+32}"`
+	temp="$temp°F"
+elif [ "$1"  = "-k" ];then
+	temp="$(($temp+273)).15"
+else
+	temp="$temp°C"
+fi
+#echo -e "\e[01;33m$temp\e[00m"
+echo "<txt> $temp</txt><tool>GPU Temperature $temp</tool>"
+echo "<img>/usr/local/share/icons/hicolor/22x22/devices/sensors-applet-gpu.png</img>"
+exit
