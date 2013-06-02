@@ -1,0 +1,6 @@
+#!/bin/sh
+GPU=$(nvidia-smi | head -9 | tail -1 | sed 's/[^0-9 ]//g' | awk '{print $3"% "$4"MB "$5"MB"}')
+USE=$(echo $GPU | awk '{print $1}')
+MEM=$(echo $GPU | awk '{print $2" of "$3" used"}')
+echo "<bar>$USE</bar><tool>Memory: $MEM</tool>"
+exit
