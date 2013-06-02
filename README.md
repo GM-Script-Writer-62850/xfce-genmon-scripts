@@ -6,7 +6,5 @@ I made these for use on Xubuntu<br>
 I uploaded thses here in the hope they will be useful to others<br>
 <br>
 <br>
-cpu-freq-plugin, cpu-temp, hdd-temp, and temp all use icons from gnome, you can Download thoes by running this command<br>
-<pre>firefox "$(curl https://raw.github.com/GM-Script-Writer-62850/xfce-genmon-scripts/master/icons_base64_uri)"</pre>
-Save it as <code>something.tar.gz</code>
+cpu-freq-plugin, cpu-temp, hdd-temp, and temp all use icons from gnome, you can download them <a href="http://www.mediafire.com/download/ef6ghr6xxg656vc/icons.tar.gz">here</a>, cause I can't figure out how to put a non text file here<br>
 Extact it to <code>/</code> it should be merged with it, you will need to do this as root
