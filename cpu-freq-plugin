@@ -111,7 +111,7 @@ else
 fi
 USE="$(($USE/10))"
 if [ $USE -lt 100 ];then
-	echo "<txt>$USE%<span fgcolor=\"#18191A\">0</span></txt>" # 18191A
+	echo "<txt>$USE%<span fgcolor=\"#18191A\">0</span></txt>" # 18191A is the panel background color
 else
 	echo "<txt>$USE%</txt>"
 fi
