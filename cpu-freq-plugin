@@ -20,6 +20,20 @@ if [ -z "$1" ];then
 	exit
 fi
 LOC="/sys/devices/system/cpu/cpu$1/cpufreq"
+if [ ! -d "$LOC" ];then
+	echo "<img>$ICONS/cpufreq-100.png</img>"
+	Spd=$(cat /proc/cpuinfo | grep 'cpu MHz' | awk "NR==$(($1+1))" | sed 's/.*: //')
+	Spd=$(perl -e "printf(\"%.0f\", $Spd)")
+	if [ $Spd -gt 999 ];then
+		Spd=$(perl -e "print $Spd/1000")
+		t="GHz"
+	else
+		t="MHz"
+	fi
+	echo -e "<tool>Core $1 is at $Spd $t\nCPU scaling is not supported</tool>"
+	echo "<txt>100%</txt>"
+	exit
+fi
 GOV=$(cat $LOC/scaling_governor)
 if [ "$2" == "--set" ];then
 	GOVS=$(cat $LOC/scaling_available_governors)
