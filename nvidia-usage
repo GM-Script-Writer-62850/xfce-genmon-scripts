@@ -1,6 +1,7 @@
 #!/bin/sh
-GPU=$(nvidia-smi | head -9 | tail -1 | sed 's/[^0-9 ]//g' | awk '{print $3"% "$4"MB "$5"MB"}')
-USE=$(echo $GPU | awk '{print $1}')
-MEM=$(echo $GPU | awk '{print $2" of "$3" used"}')
-echo "<bar>$USE</bar><tool>Memory: $MEM</tool>"
+GPU=$(nvidia-smi -q | grep 'Memory Usage' -A 2 | sed 's/[^0-9 ]//g')
+MAX=$(echo $GPU | awk '{print $1}')
+USE=$(echo $GPU | awk '{print $2}')
+GPU=$(echo $GPU | awk '{print $2/$1*100}')
+echo "<bar>$GPU%</bar><tool>Memory: $USE"MB" of $MAX"MB" used</tool>"
 exit
