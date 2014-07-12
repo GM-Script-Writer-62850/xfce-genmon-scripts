@@ -1,6 +1,18 @@
 #!/bin/bash
 # add this to startup
 # NAME_OF_THIS_FILE --set-permissions
+##### The below script is to fix a permission preservation bug with the intel_pstate module 
+## #!/bin/sh
+## # This file is: /etc/pm/sleep.d/intel_pstate
+## # /usr/local/bin/cpu-freq-plugin is the full path to the genmon applet's script, see line 7 (or line 11 if this line is line 7)
+## case "$1" in
+## 	thaw|resume)
+## 		if [ $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_driver) = "intel_pstate" ];then
+## 			/usr/local/bin/cpu-freq-plugin --set-permissions
+## 		fi
+## 	;;
+## esac
+##### END intel_pstate bug workaround script
 if [ "$1" == "--set-permissions" ];then
   LOC="/sys/devices/system/cpu"
 	chmod 777 $LOC/cpu*/cpufreq/{scaling_setspeed,scaling_governor} 2> /dev/null
