@@ -112,7 +112,29 @@ else
 	echo "<tool>No idea how the power management works on this cpu @.@</tool>"
 	exit
 fi
-MAX=$(cat $LOC/scaling_max_freq)
+DRV=$(cat $LOC/scaling_driver)
+if [ ! -f "/tmp/.CPU-Frequency" ];then
+	# This makes turbo frequencies read as over 100%
+	if [ "$DRV" == "intel_pstate" ];then
+		MAX=$(dmesg | grep 'tsc: Det' | awk '{print int($5*1000)}')
+		if [ -n "$MAX" ];then
+			if [ $MAX -gt 0 ];then
+				MAX2=$(cat $LOC/scaling_max_freq)
+				if [ $MAX2 -gt $MAX ];then
+					echo $MAX > /tmp/.CPU-Frequency
+				fi
+			fi
+		fi
+	fi
+	if [ ! -f "/tmp/.CPU-Frequency" ];then
+		echo '-1' > /tmp/.CPU-Frequency
+	fi
+else
+	MAX=$(cat /tmp/.CPU-Frequency)
+	if [ $MAX -lt 0 ];then
+		MAX=$(cat $LOC/scaling_max_freq)
+	fi
+fi
 USE=$(perl -e "print int($CUR/$MAX*1000)")
 GHz=$(perl -e "print $CUR/1000000")
 if [ "$2" == "--bar" ];then
@@ -141,6 +163,6 @@ if [ $USE -lt 100 ];then
 else
 	echo "<txt>$USE%</txt>"
 fi
-echo -e "<tool>Core $1 is at $Spd\nGovernor is ${GOV^}\nScaling driver is $(cat $LOC/scaling_driver)</tool>"
+echo -e "<tool>Core $1 is at $Spd\nGovernor is ${GOV^}\nScaling driver is $DRV</tool>"
 echo "<click>$(basename $0) $1 --set</click>"
 exit
