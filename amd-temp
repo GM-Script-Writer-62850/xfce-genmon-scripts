@@ -1,0 +1,134 @@
+#!/bin/sh
+setProfile() {
+	if [ "$1" = "low" ];then
+		#amdSensors --dev --set pp_od_clk_voltage 'm 1 300 750'
+		#amdSensors --dev --set pp_od_clk_voltage 'm 2 300 750'
+		amdSensors --dev --set pp_od_clk_voltage 's 7 1340 1106'
+		amdSensors --dev --set pp_od_clk_voltage 'c'
+		amdSensors --dev --set pp_dpm_sclk 0
+		#amdSensors --dev --set pp_dpm_mclk 0
+		cfg="Low"
+	elif [ "$1" = "auto" ];then
+		#amdSensors --dev --set pp_od_clk_voltage 'm 1 1000 800'
+		#amdSensors --dev --set pp_od_clk_voltage 'm 2 2000 950'
+		amdSensors --dev --set pp_od_clk_voltage 's 7 1340 1106'
+		amdSensors --dev --set pp_od_clk_voltage 'c'
+		amdSensors --dev --set pp_dpm_sclk '0 1 2 3 4 5 6 7'
+		cfg="Automatic"
+	elif [ "$1" = "oc" ];then
+		#amdSensors --dev --set pp_od_clk_voltage 'm 1 1000 800'
+		#amdSensors --dev --set pp_od_clk_voltage 'm 2 2000 950'
+		amdSensors --dev --set pp_od_clk_voltage 's 7 1410 1150'
+		amdSensors --dev --set pp_od_clk_voltage 'c'
+		amdSensors --dev --set pp_dpm_sclk '0 1 2 3 4 5 6 7'
+		cfg="Overclock"
+	elif [ "$1" = "high" ];then
+		#amdSensors --dev --set pp_od_clk_voltage 'm 1 1000 800'
+		#amdSensors --dev --set pp_od_clk_voltage 'm 2 2000 950'
+		amdSensors --dev --set pp_od_clk_voltage 's 7 1340 1106'
+		amdSensors --dev --set pp_od_clk_voltage 'c'
+		amdSensors --dev --set pp_dpm_sclk 7
+		cfg="High"
+	elif [ "$1" = "max" ];then
+		#amdSensors --dev --set pp_od_clk_voltage 'm 1 1000 800'
+		#amdSensors --dev --set pp_od_clk_voltage 'm 2 2000 950'
+		amdSensors --dev --set pp_od_clk_voltage 's 7 1410 1150'
+		amdSensors --dev --set pp_od_clk_voltage 'c'
+		amdSensors --dev --set pp_dpm_sclk 7
+		cfg="Max"
+	elif [ "$1" = "heater" ];then
+		amdSensors --dev --set pp_od_clk_voltage 's 7 1450 1200'
+		amdSensors --dev --set pp_od_clk_voltage 'c'
+		amdSensors --dev --set pp_dpm_sclk 7
+		cfg="Heater"
+	fi
+}
+if [ "$1" = "--set" ];then
+	inpt=$(zenity --height=275 --width=300 --list --title 'Choose a Preset' --text 'Select one' --radiolist --column 'Pick' --column 'Opinion' FALSE Low TRUE Auto FALSE OC FALSE High FALSE Max FALSE Heater FALSE Custom)
+	if [ -n "$inpt" ];then
+		in=$(echo $inpt | awk '{print tolower($0)}')
+		echo $in > /tmp/radeonState
+		setProfile $in
+		if [ "$inpt" = "Custom" ];then
+			echo "Core Clock"
+			clocks=$(amdSensors --dev --cat pp_dpm_sclk)
+			lst=$(echo "$clocks" | awk '{print "TRUE "$2}')
+			inpt=$(zenity --height=300 --width=300 --list --title 'Choose Core Clock(s)' --text 'Select one' --checklist --multiple --column 'Pick' --column 'Opinion' $lst | sed 's/|/ /g')
+			if [ -n "$inpt" ];then
+				lst=""
+				for i in $inpt; do
+					echo "i=$i"
+					line=$(($(echo "$clocks"  | grep -Fn " $i" | cut -f1 -d':')-1))
+					if [ -n "$lst" ];then
+						lst="$lst $line"
+					else
+						lst=$line
+					fi
+					echo "lst=$lst"
+				done
+				amdSensors --dev --set pp_dpm_sclk "$lst"
+			fi
+			echo "Memory Clock"
+			clocks=$(amdSensors --dev --cat pp_dpm_mclk)
+			lst=$(echo "$clocks" | awk '{print "TRUE "$2}')
+			inpt=$(zenity --list --title 'Choose Memory Clock(s)' --text 'Select one' --checklist --multiple --column 'Pick' --column 'Opinion' $lst | sed 's/|/ /g')
+			if [ -z "$inpt" ];then
+				exit
+			fi
+			lst=""
+			for i in $inpt; do
+				echo "i=$i"
+				line=$(($(echo "$clocks"  | grep -Fn " $i" | cut -f1 -d':')-1))
+				if [ -n "$lst" ];then
+					lst="$lst $line"
+				else
+					lst=$line
+				fi
+				echo "lst=$lst"
+			done
+			amdSensors --dev --set pp_dpm_mclk "$lst"
+		fi
+	fi
+	exit
+fi
+data=$(amdSensors)
+temp=$(echo "$data" | grep 'Temp' | awk '{print $2}')
+clocks=$(echo "$data" | grep 'Clock' | awk '{print $2}')
+if [ -f "/tmp/radeonState" ];then
+	cfg=$(cat /tmp/radeonState)
+	core=$(echo "$clocks" | head -1)
+	mem=$(echo "$clocks" | tail -1)
+	if [ "$cfg" = "low" ];then
+		if [ $core -gt 300 ]; then
+			setProfile $cfg
+		fi
+		cfg="Low"
+	elif [ "$cfg" = "auto" ];then
+		#if [ $mem -lt 2000 ]; then
+		#	setProfile $cfg
+		#fi
+		cfg="Auto"
+	elif [ "$cfg" = "oc" ];then
+		#if [ $mem -lt 2000 ]; then
+		#	setProfile $cfg
+		#fi
+		cfg="Overclocked"
+	elif [ "$cfg" = "high" ];then
+		#if [ $mem -lt 2000 ] || [ $core -lt 1301 ]; then
+		#	setProfile $cfg
+		#fi
+		cfg="High"
+	elif [ "$cfg" = "max" ];then
+		#if [ $mem -lt 2000 ] || [ $core -lt 1400 ]; then
+		#	setProfile $cfg
+		#fi
+		cfg="Max"
+	elif [ "$cfg" = "heater" ];then
+		cfg="Heater"
+	else
+		cfg="Manual"
+	fi
+	data="$data\nProfile:\n\t$cfg"
+fi
+echo "<txt>$temp</txt><tool>$data</tool><img>/usr/local/share/icons/hicolor/22x22/devices/sensors-applet-gpu.png</img>"
+echo '<click>amd-temp --set</click>';
