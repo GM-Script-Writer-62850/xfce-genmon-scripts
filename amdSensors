@@ -1,0 +1,148 @@
+#!/bin/sh
+dev="/sys/class/drm/card0/device"
+mon="$dev/hwmon/$(ls $dev/hwmon)"
+if [ "$1" = "--dev" ] || [ "$1" = "--hwmon" ];then
+	if [ "$1" = "--dev" ];then
+		dir="$dev"
+	elif [ "$1" = "--hwmon" ];then
+		dir="$mon"
+	elif [ -z "$3" ];then
+		echo "Please use --dev or --hwmon"
+		exit
+	fi
+	if [ -z "$2" ];then
+		echo "$dir"
+	elif [ "$2" = "--ls" ];then
+		ls "$dir/$3"
+	elif [ -z "$3" ];then
+		echo "Expected file name after $2"
+	elif [ -f "$dir/$3" ];then
+		if [ "$2" = "--cat" ];then
+			cat "$dir/$3"
+		elif [ "$2" = "--set" ];then
+			if [ -z "$4" ];then
+				echo "So what would you like to set $3 to?"
+				"$0" --help
+			else
+				echo "$4" > "$dir/$3"
+			fi
+		else
+			echo "Expected --cat, --set, or --ls received $2"
+		fi
+	else
+		echo "This does not exist: $dir/$3"
+		echo "Files in $dir"
+		ls "$dir"
+	fi
+	exit
+elif [ "$1" = "--doc" ];then
+	echo "https://www.kernel.org/doc/html/latest/gpu/amdgpu.html#gpu-power-thermal-controls-and-monitoring"
+	exit
+elif [ "$1" = "--loop" ];then
+	if [ -z "$2" ];then
+		d=1
+	else
+		d="$2"
+	fi
+	while [ 1 ];do
+		clear
+		sh "$0"
+		sleep "$d"
+	done
+elif [ "$1" = "--source" ];then
+	cat "$0"
+	exit
+elif [ "$1" = "--help" ];then
+	self=$(basename "$0")
+	echo "Usage:"
+	echo "$self                                           Print sensor readings"
+	echo "$self --help                                    Print this"
+	echo "$self --help-oc                                 OC example commands"
+	echo "$self --doc                                     Print link to documentation: $($self --doc)"
+	echo "$self --loop [delay]                            Watch sensor readings. Default delay is 1 second."
+	echo "$self --source                                  Print source code of this script"
+	echo "$self --dev                                     Print path to device directory"
+	echo "$self --dev --ls                                Print contents of device directory"
+	echo "$self --dev --cat fileName                      Print contents of device file"
+	echo "$self --dev --set fileName value                Set contents of device file"
+	echo "$self --hwmon                                   Print path to hardware monitoring directory"
+	echo "$self --hwmon --ls                              Print contents of hardware monitoring directory"
+	echo "$self --hwmon --cat fileName                    Print contents of hardware monitoring file"
+	echo "$self --hwmon --set fileName value              Set contents of hardware monitoring file"
+	echo "\tExample (print clock speed/voltage table):"
+	echo "\t\tMust be in this order!"
+	echo "\t\t$self --dev --cat pp_od_clk_voltage"
+	echo "\tExample (set fan speed to 50%):"
+	echo "\t\tMust be in this order!"
+	echo "\t\t$self --hwmon --set pwm1 128"
+	echo "\t\t*To set fan speed fan control must be set to manual:"
+	echo "\t\t\t$self --hwmon --set pwm1_enable 1"
+	echo "\tExample (lock memory frequency to level 3):"
+	echo "\t\tMust be in this order!"
+	echo "\t\t$self --dev --set pp_dpm_mclk 2"
+	echo "\t\t*To set control power states power_dpm_force_performance_level must be set to manual:"
+	echo "\t\t\t$self --dev --set power_dpm_force_performance_level manual"
+	echo "If you have multiple GPUs installed you can make a copy of this script and edit line 2"
+	echo "\tjust change the 0 to a 1 for the second card or use 2 for the 3ed card"
+	exit
+elif [ "$1" = "--help-oc" ];then
+	self=$(basename "$0")
+	echo "To enable overclocking features a kernel parameter is required, this is added in /etc/default/grub"
+	echo "\tamdgpu.ppfeaturemask=0xffffffff is usually what is used, the 4th f is the important one"
+	echo "\tThe current value of ppfeaturemask is $(printf '0x%08x\n' $(cat /sys/module/amdgpu/parameters/ppfeaturemask))"
+	echo "Changing core/memory voltages and clock speed"
+	echo "\tSet core clock/voltage"
+	echo "\t\t$self --dev --set pp_od_clk_voltage 's 7 1411 1131'"
+	echo "\tSet memory clock/voltage"
+	echo "\t\t$self --dev --set pp_od_clk_voltage 'm 2 2050 950'"
+	echo "\tApply clock/voltage changes"
+	echo "\t\t$self --dev --set pp_od_clk_voltage 'c'"
+	echo "Select available power states"
+	echo "\tFollowing require"
+	echo "\t\t$self --dev --set power_dpm_force_performance_level manual"
+	echo "\tMemory"
+	echo "\t\t$self --dev --set pp_dpm_mclk 2"
+	echo "\t\t$self --dev --set pp_dpm_mclk '1 2'"
+	echo "\tCore"
+	echo "\t\t$self --dev --set pp_dpm_sclk 7"
+	echo "\t\t$self --dev --set pp_dpm_sclk '1 7'"
+	echo "Set Power limit (150W)"
+	echo "\t$self --hwmon --set power1_cap 150000000"
+	exit
+fi
+read -r coreClk < $mon/freq1_input
+coreClk=$(($coreClk/1000000))
+read -r corePct < $dev/gpu_busy_percent
+read -r memClk < $mon/freq2_input
+memClk=$(($memClk/1000000))
+read -r fanSpd < $mon/fan1_input
+read -r fanPct < $mon/pwm1
+fanPct=$(($fanPct*100/255))
+#read -r fanTgt < $mon/fan1_target
+read -r fanCtrl < $mon/pwm1_enable
+read -r temp < $mon/temp1_input
+temp=$(($temp/1000))
+read -r pwr < $mon/power1_average
+pwr=$(($pwr/1000000))
+read -r pwrLmt < $mon/power1_cap
+pwrLmt=$(($pwrLmt/1000000))
+read -r volt < $mon/in0_input
+read -r mem < $dev/mem_info_vram_total
+mem=$(($mem/1000000))
+read -r memUsed < $dev/mem_info_vram_used
+memUsed=$(($memUsed/1000000))
+memPct=$(($memUsed*100/$mem))
+read -r memLoad < $dev/mem_busy_percent
+case $fanCtrl in
+	0)
+		fanCtrl="Disabled"
+		;;
+	1)
+		fanCtrl="Manual"
+		;;
+	2)
+		fanCtrl="Automatic"
+		;;
+esac
+echo "Core:\t\n\tClock:\t$coreClk Mhz\n\tTemp:\t$temp°C\n\tVolts:\t$volt mV\n\tUsage:\t$corePct%\nMemory:\n\tClock:\t$memClk Mhz\n\tData:\t$memUsed / $mem MiB ($memPct%)\n\tUsage:\t$memLoad%\nFan:\t\n\tSpeed:\t$fanSpd RPM ($fanPct%)\n\tMode:\t$fanCtrl\nPower:\t\n\tWatts:\t$pwr / $pwrLmt"
+exit
